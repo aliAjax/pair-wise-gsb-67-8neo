@@ -1,1 +1,0 @@
-import{g as a,j as n,X as o,c,R as r,o as _}from"./Bx_KFa3E.js";const p={class:"page"},d=a({__name:"index",async setup(i){let e,t;const s=n();return[e,t]=o(()=>r(`/equipment/${s.equipment[0]?.id??"EQ-GRID"}`,{replace:!0})),await e,t(),(m,u)=>(_(),c("section",p,"正在打开设备树..."))}});export{d as default};

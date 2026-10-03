@@ -1,4 +1,4 @@
-import type { AcceptanceDefect, AuditEntry, EquipmentNode, Plant } from '../types/domain'
+import type { AcceptanceDefect, AuditEntry, EquipmentNode, Plant, SignBatch } from '../types/domain'
 
 export const seedPlant: Plant = {
   id: 'PV-2609-NW', name: '西北沙岭一期 120MW光伏电站', gridPoint: '沙岭110kV升压站', capacity: '120 MWp', commissioningDate: '2026-10-08', status: '验收中', version: 7
@@ -50,6 +50,8 @@ export const seedDefects: AcceptanceDefect[] = [
     retests: [{ round: 1, passed: false, result: '效率98.27%，未达到98.5%', tester: '联合验收组', testedAt: '2026-09-28T17:10:00' }]
   }
 ]
+
+export const seedBatches: SignBatch[] = []
 
 export const seedAudit: AuditEntry[] = [
   { id: 'A-1', entityId: 'PV-2609-NW', action: '创建验收计划', operator: '陆川', detail: '建立5类设备树与18项验收要求', createdAt: '2026-09-25T08:30:00' },

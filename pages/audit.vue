@@ -17,7 +17,7 @@ const sign = () => {
   toast.add({ severity: result.ok ? 'success' : 'error', summary: result.ok ? '签署完成' : '完整性校验未通过', detail: result.message, life: 4000 })
 }
 const exportPackage = () => {
-  const payload = { plant: store.plant, equipment: store.equipment, defects: store.defects, audit: store.audit, preflight: store.preflight }
+  const payload = { plant: store.plant, equipment: store.equipment, defects: store.defects, audit: store.audit, batches: store.batches, preflight: store.preflight }
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = '光伏并网验收交付包.json'; anchor.click(); URL.revokeObjectURL(url)
 }

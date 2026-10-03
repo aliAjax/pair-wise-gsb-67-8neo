@@ -66,6 +66,46 @@ export interface Plant {
   version: number
 }
 
+export type BatchEntryKind = '验收项' | '缺陷' | '证书' | '多方回复'
+export type BatchEntryStatus = '待回传' | '已合并' | '冲突' | '已失效重算'
+export type SignBatchStatus = '待回传' | '部分回传' | '待复核' | '已合并' | '已确认'
+
+export interface SignBatchEntry {
+  key: string
+  kind: BatchEntryKind
+  entityId: string
+  parentId: string | null
+  seenVersion: number
+  conclusion: string
+  status: BatchEntryStatus
+  mergedAt: string | null
+}
+
+export interface VersionConflict {
+  id: string
+  batchId: string
+  kind: BatchEntryKind
+  entityId: string
+  seenVersion: number
+  currentVersion: number
+  offlineConclusion: string
+  currentConclusion: string
+  detectedAt: string
+  resolved: boolean
+}
+
+export interface SignBatch {
+  id: string
+  plantId: string
+  createdBy: string
+  createdAt: string
+  status: SignBatchStatus
+  entries: SignBatchEntry[]
+  conflicts: VersionConflict[]
+  confirmedBy: string | null
+  confirmedAt: string | null
+}
+
 export interface AuditEntry {
   id: string
   entityId: string
