@@ -1,10 +1,14 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { seedAudit, seedDefects, seedEquipment, seedPlant } from '../data/seed'
-import type { AcceptanceDefect, AcceptanceItem, AuditEntry, EquipmentNode, PartyReply, Plant } from '../types/domain'
+import { replyKey } from '../services/edition'
+import type { AcceptanceDefect, AcceptanceItem, AuditEntry, Certificate, EquipmentNode, PartyReply, Plant } from '../types/domain'
 
 const STORAGE_KEY = 'gsb67:grid-acceptance'
 let idSeed = 30
+
+type ItemEditionFields = Pick<AcceptanceItem, 'standard' | 'method' | 'condition'>
+type DefectEditionFields = Pick<AcceptanceDefect, 'title' | 'severity' | 'owner' | 'dueDate'>
 
 export const useAcceptanceStore = defineStore('acceptance', () => {
   const plant = ref<Plant>(structuredClone(seedPlant))
@@ -121,6 +125,96 @@ export const useAcceptanceStore = defineStore('acceptance', () => {
     return { ok: true, message: '签署完成，交付版本已锁定' }
   }
 
+  /** 建设单位确认换版后：仅让受影响验收项失效，本地切到新版并退回待检查重算 */
+  function invalidateItem(equipmentId: string, itemId: string, edition: ItemEditionFields & { version: number }) {
+    const node = equipment.value.find((value) => value.id === equipmentId)
+    const item = node?.items.find((value) => value.id === itemId)
+    if (!item) return
+    Object.assign(item, edition, { status: '待检查' as const, measured: '', evidence: '' })
+    if (node) node.status = '验收中'
+    log(itemId, '换版失效重算', '建设单位', `验收项采用云端V${edition.version}，原现场结论作废，需重新检查`)
+    persist()
+  }
+
+  /** 受影响证书失效：切到新版并回到待核验，不沿用旧核验结论 */
+  function invalidateCertificate(certificateId: string, edition: Pick<Certificate, 'name' | 'issuer' | 'expiresAt' | 'version'>) {
+    const certificate = equipment.value.flatMap((node) => node.certificates).find((value) => value.id === certificateId)
+    if (!certificate) return
+    Object.assign(certificate, edition, { verified: false })
+    log(certificateId, '换版失效重算', '建设单位', `证书采用云端V${edition.version}，需重新核验`)
+    persist()
+  }
+
+  /** 受影响缺陷失效：采用新版缺陷描述，回到整改/待分派重算 */
+  function invalidateDefect(defectId: string, edition: DefectEditionFields & { version: number }) {
+    const defect = defects.value.find((value) => value.id === defectId)
+    if (!defect) return
+    Object.assign(defect, edition, { status: '整改中' as const, decisionNote: '' })
+    log(defectId, '换版失效重算', '建设单位', `缺陷采用云端V${edition.version}，原处置结论作废，需重新闭环`)
+    persist()
+  }
+
+  /** 受影响的多方回复：标记失效，需要责任方按新版重新回复 */
+  function invalidateReply(defectId: string, replyKeyToken: string) {
+    const defect = defects.value.find((value) => value.id === defectId)
+    const target = defect?.replies.find((reply) => (reply as PartyReply & { replyKey?: string }).replyKey === replyKeyToken || replyKey(reply) === replyKeyToken)
+    if (!defect || !target) return
+    ;(target as PartyReply & { replyKey?: string }).replyKey = replyKeyToken
+    target.content = `【旧版回复已失效·待按新版重回复】${target.content}`
+    defect.status = '整改中'
+    defect.version += 1
+    log(defectId, '回复换版失效', '建设单位', `${target.party} ${target.owner} 的回复依据已换版，需重新提交`)
+    persist()
+  }
+
+  /** 受影响验收项按新版重算：现场重新检查后录入新结论 */
+  function reinspectItem(equipmentId: string, itemId: string, patch: Pick<AcceptanceItem, 'status' | 'measured' | 'evidence'>) {
+    const item = equipment.value.find((node) => node.id === equipmentId)?.items.find((value) => value.id === itemId)
+    if (!item) return
+    Object.assign(item, patch, { version: item.version + 1 })
+    log(itemId, '按新版重算', '现场验收组', `基于V${item.version}重新检查：${item.status} ${item.measured}`)
+    persist()
+  }
+
+  /** 受影响证书重新核验 */
+  function reverifyCertificate(certificateId: string, verified: boolean) {
+    const certificate = equipment.value.flatMap((node) => node.certificates).find((value) => value.id === certificateId)
+    if (!certificate) return
+    certificate.verified = verified
+    certificate.version += 1
+    log(certificateId, '按新版重算', '现场验收组', `基于V${certificate.version}重新核验：${verified ? '通过' : '不通过'}`)
+    persist()
+  }
+
+  /** 受影响缺陷按新版重新复验（重算轮次） */
+  function retestDefect(defectId: string, result: string, passed: boolean, note: string) {
+    const defect = defects.value.find((value) => value.id === defectId)
+    if (!defect) return
+    defect.retests.unshift({ round: defect.retests.length + 1, passed, result, tester: '联合验收组（换版重算）', testedAt: new Date().toISOString() })
+    defect.status = passed ? '已关闭' : '整改中'
+    defect.decisionNote = passed ? note : defect.decisionNote
+    defect.version += 1
+    log(defectId, '按新版重算复验', '联合验收组', result)
+    persist()
+  }
+
+  /** 受影响回复按新版重新回复（复用原责任方身份，生成新的回复版本） */
+  function recomputeReply(defectId: string, oldReplyKeyToken: string, content: string, evidence: string) {
+    const defect = defects.value.find((value) => value.id === defectId)
+    if (!defect) return
+    const index = defect.replies.findIndex((reply) => (reply as PartyReply & { replyKey?: string }).replyKey === oldReplyKeyToken || replyKey(reply) === oldReplyKeyToken)
+    if (index < 0) return
+    const old = defect.replies[index]
+    const fresh: PartyReply & { replyKey?: string } = { party: old.party, owner: old.owner, content, evidence, repliedAt: new Date().toISOString() }
+    fresh.replyKey = `RPL-${Date.now().toString(36)}-${idSeed++}`
+    defect.replies[index] = fresh
+    defect.status = '待联合复验'
+    defect.version += 1
+    log(defectId, '按新版重算回复', fresh.owner, content)
+    persist()
+    return fresh.replyKey
+  }
+
   function reset() {
     plant.value = structuredClone(seedPlant)
     equipment.value = structuredClone(seedEquipment)
@@ -133,5 +227,5 @@ export const useAcceptanceStore = defineStore('acceptance', () => {
     audit.value.unshift({ id: `AUD-${Date.now()}-${idSeed++}`, entityId, action, operator, detail, createdAt: new Date().toISOString() })
   }
 
-  return { plant, equipment, defects, audit, selectedEquipmentId, keyword, hydrated, selectedEquipment, stats, preflight, hydrate, updateItem, assignDefect, addReply, addRetest, decideDefect, signOff, reset }
+  return { plant, equipment, defects, audit, selectedEquipmentId, keyword, hydrated, selectedEquipment, stats, preflight, hydrate, updateItem, assignDefect, addReply, addRetest, decideDefect, signOff, invalidateItem, invalidateCertificate, invalidateDefect, invalidateReply, reinspectItem, reverifyCertificate, retestDefect, recomputeReply, reset }
 })

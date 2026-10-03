@@ -1,1 +1,0 @@
-import{u as a,e as o,h as u,i as c,f as i}from"./Bx_KFa3E.js";function f(e){const t=e||o();return t?.ssrContext?.head||t?.runWithContext(()=>{if(u())return c(i)})}function d(e,t={}){const n=f(t.nuxt);if(n)return a(e,{head:n,...t})}const h=(e,t)=>{const n=e.__vccOpts||e;for(const[s,r]of t)n[s]=r;return n};export{h as _,d as u};
