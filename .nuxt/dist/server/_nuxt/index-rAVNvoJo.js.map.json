@@ -1,0 +1,1 @@
+{"file":"index-rAVNvoJo.js","mappings":";AAEG,IAAC,kBAAkB,SAAQ;","names":[],"sources":["../../../../node_modules/primevue/overlayeventbus/index.mjs"],"sourcesContent":["import { EventBus } from '@primeuix/utils/eventbus';\n\nvar OverlayEventBus = EventBus();\n\nexport { OverlayEventBus as default };\n//# sourceMappingURL=index.mjs.map\n"],"version":3}

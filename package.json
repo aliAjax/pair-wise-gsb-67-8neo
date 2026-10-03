@@ -1,0 +1,28 @@
+{
+  "name": "pair-wise-gsb-67",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --port 18467",
+    "build": "nuxt build",
+    "preview": "nuxt preview --port 18467",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@pinia/nuxt": "^0.9.0",
+    "@primevue/nuxt-module": "^4.2.5",
+    "@primevue/themes": "^4.2.5",
+    "@tanstack/vue-query": "^5.62.11",
+    "nuxt": "^3.15.0",
+    "ofetch": "^1.4.1",
+    "pinia": "^2.3.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.2.5",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vue-tsc": "^2.1.10"
+  }
+}
